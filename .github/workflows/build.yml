@@ -2,13 +2,15 @@ name: Build and Release Raylib Project
 
 on:
   push:
+    branches:
+      - main
 
 jobs:
   build_and_release:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
     # 1. Pobranie kodu źródłowego
@@ -26,18 +28,20 @@ jobs:
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
+        # Instalacja Visual Studio Build Tools z kompilatorami C++
+        - name: Install Visual Studio Build Tools
+          run: |
+            # Pobranie i zainstalowanie narzędzi Visual Studio Build Tools
+            choco install visualstudio2019buildtools -y
+
         # Instalacja CMake
         curl -LO https://github.com/Kitware/CMake/releases/download/v3.27.2/cmake-3.27.2-windows-x86_64.msi
         msiexec /i cmake-3.27.2-windows-x86_64.msi /quiet /norestart
-        
+
         # Instalacja Ninja
         curl -LO https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip
         unzip ninja-win.zip -d C:\ninja
         setx PATH "%PATH%;C:\ninja"
-
-        # Instalacja Visual Studio Build Tools (z kompilatorami C++)
-        # Jeśli nie jest już zainstalowane, instalacja narzędzi Visual Studio
-        choco install visualstudio2019buildtools -y
 
     # 4. Instalacja zależności dla macOS
     - name: Install dependencies (macOS)
@@ -48,12 +52,12 @@ jobs:
     # 5. Konfiguracja projektu
     - name: Configure CMake
       run: |
-        cmake -B build -G Ninja
+        cmake -B build -G "Visual Studio 16 2019"
 
     # 6. Kompilacja projektu
     - name: Build project
       run: |
-        cmake --build build
+        cmake --build build --config Release
 
     # 7. Pakowanie wyników w ZIP
     - name: Package the build
