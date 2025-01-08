@@ -10,7 +10,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
     # 1. Pobranie kodu źródłowego
@@ -28,12 +28,6 @@ jobs:
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
-        # Instalacja Visual Studio Build Tools z kompilatorami C++
-        - name: Install Visual Studio Build Tools
-          run: |
-            # Pobranie i zainstalowanie narzędzi Visual Studio Build Tools
-            choco install visualstudio2019buildtools -y
-
         # Instalacja CMake
         curl -LO https://github.com/Kitware/CMake/releases/download/v3.27.2/cmake-3.27.2-windows-x86_64.msi
         msiexec /i cmake-3.27.2-windows-x86_64.msi /quiet /norestart
@@ -43,16 +37,29 @@ jobs:
         unzip ninja-win.zip -d C:\ninja
         setx PATH "%PATH%;C:\ninja"
 
+        # Instalacja Visual Studio Build Tools (z kompilatorami C++)
+        choco install visualstudio2019buildtools -y
+
+        # Instalacja .NET SDK, aby kompilator C++ działał
+        choco install dotnet-sdk -y
+
     # 4. Instalacja zależności dla macOS
     - name: Install dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
         brew install cmake ninja
 
-    # 5. Konfiguracja projektu
-    - name: Configure CMake
+    # 5. Konfiguracja projektu (użycie Visual Studio jako generatora)
+    - name: Configure CMake (Windows)
+      if: runner.os == 'Windows'
       run: |
         cmake -B build -G "Visual Studio 16 2019"
+
+    # 5. Konfiguracja projektu (użycie Ninja dla innych systemów)
+    - name: Configure CMake (Linux/MacOS)
+      if: runner.os != 'Windows'
+      run: |
+        cmake -B build -G Ninja
 
     # 6. Kompilacja projektu
     - name: Build project
