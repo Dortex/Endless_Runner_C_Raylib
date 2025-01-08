@@ -29,11 +29,15 @@ jobs:
         # Instalacja CMake
         curl -LO https://github.com/Kitware/CMake/releases/download/v3.27.2/cmake-3.27.2-windows-x86_64.msi
         msiexec /i cmake-3.27.2-windows-x86_64.msi /quiet /norestart
-
+        
         # Instalacja Ninja
         curl -LO https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip
         unzip ninja-win.zip -d C:\ninja
         setx PATH "%PATH%;C:\ninja"
+
+        # Instalacja Visual Studio Build Tools (z kompilatorami C++)
+        # Jeśli nie jest już zainstalowane, instalacja narzędzi Visual Studio
+        choco install visualstudio2019buildtools -y
 
     # 4. Instalacja zależności dla macOS
     - name: Install dependencies (macOS)
