@@ -4,63 +4,79 @@ on:
   push:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build_and_release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
+    # 1. Pobranie kodu źródłowego
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Install dependencies
+    # 2. Instalacja zależności dla Linux
+    - name: Install dependencies (Linux)
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y cmake ninja-build build-essential libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 
+    # 3. Instalacja zależności dla Windows
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        choco install -y cmake ninja
+
+    # 4. Instalacja zależności dla macOS
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install cmake ninja
+
+    # 5. Konfiguracja projektu
     - name: Configure CMake
       run: |
         cmake -B build -G Ninja
 
+    # 6. Kompilacja projektu
     - name: Build project
       run: |
         cmake --build build
 
+    # 7. Pakowanie wyników w ZIP
     - name: Package the build
       run: |
         mkdir release
         cp build/untitled release/
-        zip -j untitled-linux.zip release/untitled
+        zip -j untitled-${{ matrix.os }}.zip release/untitled
 
+    # 8. Przesłanie artefaktów jako ZIP
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
-        name: untitled-linux
-        path: untitled-linux.zip
+        name: untitled-${{ matrix.os }}
+        path: untitled-${{ matrix.os }}.zip
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
+    # 9. Tworzenie lub aktualizacja draft release
     - name: Create or Update Draft Release
       id: create_release
       uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
       with:
         tag_name: nightly-build
         release_name: Nightly Build
         draft: true
         prerelease: true
 
+    # 10. Dodanie ZIP do Release
     - name: Upload ZIP to Release
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: untitled-linux.zip
-        asset_name: untitled-linux.zip
+        asset_path: untitled-${{ matrix.os }}.zip
+        asset_name: untitled-${{ matrix.os }}.zip
         asset_content_type: application/zip
