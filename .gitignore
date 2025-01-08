@@ -1,52 +1,115 @@
-# Prerequisites
-*.d
+# Ignore generated files
+# ...
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+# Ignore VIM's backup generated files
+*.swp
+*.swo
+*~
 
-# Linker output
+# Ignore thumbnails created by windows
+Thumbs.db
+
+# Ignore files build by Visual Studio
+# *.obj --> Can be confused with 3d model!
+*.pdb
+*.aps
+*.user
+# *.vcproj
+# *.vcxproj*
+# *.sln
+*.vspscc
+*_i.c
+*.i
+*.icf
+*_p.c
+*.ncb
+*.suo
+*.tlb
+*.tlh
+*.bak
+*.cache
 *.ilk
-*.map
-*.exp
+*.log
+.vs
 
-# Precompiled Headers
-*.gch
-*.pch
+[Bb]in
+[Dd]ebug/
+*.sbr
+*.sdf
+obj/
+[R]elease/
+_ReSharper*/
+[Tt]est[Rr]esult*
+ipch/
+*.opensdf
+*.db
+*.opendb
+packages/
+!examples/models/resources/models/obj/
 
-# Libraries
-*.lib
+# Ignore compiled binaries
+*.o
+*.exe
 *.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
+*.bc
 *.so
 *.so.*
-*.dylib
+*.dll
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+# Emscripten
+emsdk
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+# Ignore wasm data in examples/
+examples/**/*.wasm
+examples/**/*.data
+examples/**/*.js
+examples/**/*.html
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# Ignore files build by xcode
+*.mode*v*
+*.pbxuser
+*.xcbkptlist
+*.xcscheme
+*.xcworkspacedata
+*.xcuserstate
+*.xccheckout
+xcschememanagement.plist
+.DS_Store
+._.*
+xcuserdata/
+DerivedData/
+
+# VSCode project
+.vscode
+
+# Jetbrains project
+.idea/
+cmake-build-*/
+
+# CMake stuff
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+cmake_install.cmake
+cmake_uninstall.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+build
+
+# Ignore GNU global tags
+GPATH
+GRTAGS
+GTAGS
+
+# Zig programming language
+.zig-cache/
+zig-cache/
+zig-out/
+build/
+build-*/
+docgen_tmp/
+
+# Parser stuff
+parser/raylib_parser
