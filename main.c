@@ -1,35 +1,74 @@
 #include "raylib.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
-#define MAX_FRAME_SPEED 15
-#define MIN_FRAME_SPEED 1
-#define GRAVITY 820
-#define JUMP_FORCE -280
-#define OBSTACLE_WIDTH 40
-#define OBSTACLE_HEIGHT 40
-#define BASE_OBSTACLE_SPACING_MIN 350
-#define BASE_OBSTACLE_SPACING_MAX 500
+#define MAX_PREDKOSC_KLATEK 15
+#define MIN_PREDKOSC_KLATEK 1
+#define GRAWITACJA 820
+#define SILA_SKOKU -280
+#define SZEROKOSC_PRZESZKODY 40
+#define WYSOKOSC_PRZESZKODY 40
+#define DOMYSLNY_MIN_ODSTEP 350
+#define DOMYSLNY_MAX_ODSTEP 500
+#define MAX_NAJLEPSZE_WYNIKI 3
 
-void SaveHighScore(int highScore)
+typedef struct {
+    int wynik;
+    char data[20];
+} NajlepszyWynik;
+
+void ZapiszNajlepszeWyniki(NajlepszyWynik najlepszeWyniki[], int liczbaWynikow)
 {
-    FILE *file = fopen("highscore.txt", "w");
+    FILE *file = fopen("najlepszeWyniki.txt", "w");
     if (file != NULL)
     {
-        fprintf(file, "%d", highScore);
+        for (int i = 0; i < liczbaWynikow; i++)
+        {
+            fprintf(file, "%d %s\n", najlepszeWyniki[i].wynik, najlepszeWyniki[i].data);
+        }
         fclose(file);
     }
 }
 
-int LoadHighScore()
+void WczytajNajlepszeWyniki(NajlepszyWynik najlepszeWyniki[], int *liczbaWynikow)
 {
-    int highScore = 0;
-    FILE *file = fopen("highscore.txt", "r");
+    FILE *file = fopen("najlepszeWyniki.txt", "r");
+    *liczbaWynikow = 0;
     if (file != NULL)
     {
-        fscanf(file, "%d", &highScore);
+        while (fscanf(file, "%d %19[^\n]", &najlepszeWyniki[*liczbaWynikow].wynik, najlepszeWyniki[*liczbaWynikow].data) == 2 && *liczbaWynikow < MAX_NAJLEPSZE_WYNIKI)
+        {
+            (*liczbaWynikow)++;
+        }
         fclose(file);
     }
-    return highScore;
+}
+
+void DodajNajlepszyWynik(NajlepszyWynik najlepszeWyniki[], int *liczbaWynikow, int nowyWynik)
+{
+    time_t aktualnyCzas = time(NULL);
+    struct tm *t = localtime(&aktualnyCzas);
+    char data[20];
+    strftime(data, sizeof(data), "%Y-%m-%d %H:%M:%S", t);
+
+    if (*liczbaWynikow < MAX_NAJLEPSZE_WYNIKI || nowyWynik > najlepszeWyniki[MAX_NAJLEPSZE_WYNIKI - 1].wynik)
+    {
+        if (*liczbaWynikow < MAX_NAJLEPSZE_WYNIKI)
+            (*liczbaWynikow)++;
+
+        najlepszeWyniki[*liczbaWynikow - 1].wynik = nowyWynik;
+        snprintf(najlepszeWyniki[*liczbaWynikow - 1].data, sizeof(najlepszeWyniki[*liczbaWynikow - 1].data), "%s", data);
+
+        for (int i = *liczbaWynikow - 1; i > 0 && najlepszeWyniki[i].wynik > najlepszeWyniki[i - 1].wynik; i--)
+        {
+            NajlepszyWynik temp = najlepszeWyniki[i];
+            najlepszeWyniki[i] = najlepszeWyniki[i - 1];
+            najlepszeWyniki[i - 1] = temp;
+        }
+
+        ZapiszNajlepszeWyniki(najlepszeWyniki, *liczbaWynikow);
+    }
 }
 
 int main()
@@ -37,220 +76,238 @@ int main()
     InitWindow(800, 600, "Run sheep run!");
     InitAudioDevice();
 
-    Sound jump = LoadSound("jump.wav");
+    Sound dzwiekSkoku = LoadSound("resources/jump.wav");
+    Texture2D teksturaGracza = LoadTexture("resources/player_run.png");
+    Rectangle szerokoscKlatkiAnimacjiGracza = {0.0f, 0.0f, (float)teksturaGracza.width / 6, (float)teksturaGracza.height};
+    Texture2D animacjaPorazki = LoadTexture("resources/player_death.png");
+    Rectangle szerokoscKlatkiAnimacjiPorazki = {0.0f, 0.0f, (float)animacjaPorazki.width / 6, (float)animacjaPorazki.height};
+    Texture2D teksturaPrzeszkody = LoadTexture("resources/fence1.png");
+    Texture2D tlo = LoadTexture("resources/summer2.png");
+    float tloPozycja = 0.0f;
 
-    Texture2D player = LoadTexture("player_run.png");
-    Rectangle frameRec = {0.0f, 0.0f, (float)player.width / 6, (float)player.height};
-    Texture2D playerDeath = LoadTexture("player_death.png");
-    Rectangle deathFrameRec = {0.0f, 0.0f, (float)playerDeath.width / 6, (float)playerDeath.height};
-    Texture2D obstacleTexture = LoadTexture("fence1.png");
-    Texture2D background = LoadTexture("summer2.png");
-    float backgroundOffset = 0.0f;
-
-    int currentFrame = 0;
-    int framesCounter = 0;
-    int framesSpeed = 8;
+    int obecnaKlatka = 0;
+    int licznikKlatek = 0;
+    int predkoscKlatek = 8;
 
     Camera2D camera = {0};
     camera.target = (Vector2){400, 300};
-    camera.offset = (Vector2){400, 300};
+    camera.offset = (Vector2){500, 300};
     camera.rotation = 0.0f;
-    camera.zoom = 1.2f;
+    camera.zoom = 1.5f;
 
-    int highScore = LoadHighScore();
-    bool gameOver = false;
-    bool isPlayingDeathAnimation = false;
+    int najlepszeWynikiLiczba = 0;
+    NajlepszyWynik najlepszeWyniki[MAX_NAJLEPSZE_WYNIKI];
+    WczytajNajlepszeWyniki(najlepszeWyniki, &najlepszeWynikiLiczba);
 
-    int deathFrameCounter = 0;
-    int currentDeathFrame = 0;
+    bool koniecGry = false;
+    bool czyAnimacjaPorazki = false;
+    bool czyNajlepszyWynik = false;
 
-    Vector2 playerPosition;
-    float playerVelocity;
-    bool isJumping;
-    int score;
-    float gameSpeed;
-    Rectangle obstacles[10];
-    int obstacleCount = 10;
+    int licznikAnimacjiPorazki = 0;
+    int obecnaKlatkaPorazki = 0;
 
-    int dynamicSpacingMin = BASE_OBSTACLE_SPACING_MIN;
-    int dynamicSpacingMax = BASE_OBSTACLE_SPACING_MAX;
+    Vector2 pozycjaGracza;
+    float predkoscGracza;
+    bool czySkacze;
+    int wynik;
+    float predkoscGry;
+    Rectangle przeszkody[10];
+    int liczbaPrzeszkod = 10;
 
-    void ResetGame()
+    int dynamicznyMinOdstep = DOMYSLNY_MIN_ODSTEP;
+    int dynamicznyMaxOdstep = DOMYSLNY_MAX_ODSTEP;
+
+
+
+    void RestartGry()
     {
-        playerPosition = (Vector2){100, 400};
-        playerVelocity = 0;
-        isJumping = false;
-        score = 0;
-        gameSpeed = 200;
-        isPlayingDeathAnimation = false;
-        currentDeathFrame = 0;
-        backgroundOffset = 0.0f;
-        dynamicSpacingMin = BASE_OBSTACLE_SPACING_MIN;
-        dynamicSpacingMax = BASE_OBSTACLE_SPACING_MAX;
+        pozycjaGracza = (Vector2){100, 400};
+        predkoscGracza = 0;
+        czySkacze = false;
+        wynik = 0;
+        predkoscGry = 200;
+        czyAnimacjaPorazki = false;
+        obecnaKlatkaPorazki = 0;
+        czyNajlepszyWynik = false;
+        tloPozycja = 0.0f;
+        dynamicznyMinOdstep = DOMYSLNY_MIN_ODSTEP;
+        dynamicznyMaxOdstep = DOMYSLNY_MAX_ODSTEP;
 
-        for (int i = 0; i < obstacleCount; i++)
+        for (int i = 0; i < liczbaPrzeszkod; i++)
         {
-            obstacles[i].width = OBSTACLE_WIDTH;
-            obstacles[i].height = OBSTACLE_HEIGHT;
+            przeszkody[i].width = SZEROKOSC_PRZESZKODY;
+            przeszkody[i].height = WYSOKOSC_PRZESZKODY;
 
             if (i == 0)
             {
-                obstacles[i].x = 800 + GetRandomValue(dynamicSpacingMin, dynamicSpacingMax);
+                przeszkody[i].x = 800 + GetRandomValue(dynamicznyMinOdstep, dynamicznyMaxOdstep);
             }
             else
             {
-                obstacles[i].x = obstacles[i - 1].x + GetRandomValue(dynamicSpacingMin, dynamicSpacingMax);
+                przeszkody[i].x = przeszkody[i - 1].x + GetRandomValue(dynamicznyMinOdstep, dynamicznyMaxOdstep);
             }
 
-            obstacles[i].y = 400;
+            przeszkody[i].y = 400;
         }
-        gameOver = false;
+        koniecGry = false;
     }
 
-    void PlayDeathAnimation()
+    void StartAnimacjaPorazki()
     {
-        deathFrameCounter++;
-        if (deathFrameCounter >= (60 / framesSpeed))
+        licznikAnimacjiPorazki++;
+        if (licznikAnimacjiPorazki >= (60 / predkoscKlatek))
         {
-            deathFrameCounter = 0;
-            currentDeathFrame++;
+            licznikAnimacjiPorazki = 0;
+            obecnaKlatkaPorazki++;
 
-            if (currentDeathFrame >= 6)
+            if (obecnaKlatkaPorazki >= 6)
             {
-                isPlayingDeathAnimation = false;
+                czyAnimacjaPorazki = false;
             }
 
-            deathFrameRec.x = (float)currentDeathFrame * (float)playerDeath.width / 6;
+            szerokoscKlatkiAnimacjiPorazki.x = (float)obecnaKlatkaPorazki * (float)animacjaPorazki.width / 6;
         }
     }
-    ResetGame();
+    RestartGry();
     SetTargetFPS(60);
 
     while (!WindowShouldClose())
     {
-        if (!gameOver && !isPlayingDeathAnimation)
+        if (!koniecGry && !czyAnimacjaPorazki)
         {
-            framesCounter++;
+            licznikKlatek++;
 
-            if (framesCounter >= (60 / framesSpeed))
+            if (licznikKlatek >= (60 / predkoscKlatek))
             {
-                framesCounter = 0;
-                currentFrame++;
+                licznikKlatek = 0;
+                obecnaKlatka++;
 
-                if (currentFrame > 5)
-                    currentFrame = 0;
+                if (obecnaKlatka > 5)
+                    obecnaKlatka = 0;
 
-                frameRec.x = (float)currentFrame * (float)player.width / 6;
+                szerokoscKlatkiAnimacjiGracza.x = (float)obecnaKlatka * (float)teksturaGracza.width / 6;
             }
 
-            if (IsKeyPressed(KEY_SPACE) && !isJumping)
+            if (IsKeyPressed(KEY_SPACE) && !czySkacze)
             {
-                playerVelocity = JUMP_FORCE;
-                isJumping = true;
-                PlaySound(jump);
+                predkoscGracza = SILA_SKOKU;
+                czySkacze = true;
+                PlaySound(dzwiekSkoku);
             }
 
-            playerVelocity += GRAVITY * GetFrameTime();
-            playerPosition.y += playerVelocity * GetFrameTime();
+            predkoscGracza += GRAWITACJA * GetFrameTime();
+            pozycjaGracza.y += predkoscGracza * GetFrameTime();
 
-            if (playerPosition.y >= 400)
+            if (pozycjaGracza.y >= 400)
             {
-                playerPosition.y = 400;
-                playerVelocity = 0;
-                isJumping = false;
+                pozycjaGracza.y = 400;
+                predkoscGracza = 0;
+                czySkacze = false;
             }
 
-            for (int i = 0; i < obstacleCount; i++)
+            for (int i = 0; i < liczbaPrzeszkod; i++)
             {
-                obstacles[i].x -= gameSpeed * GetFrameTime();
+                przeszkody[i].x -= predkoscGry * GetFrameTime();
 
-                if (obstacles[i].x + obstacles[i].width < 0)
+                if (przeszkody[i].x + przeszkody[i].width < 0)
                 {
-                    float newX = obstacles[(i - 1 + obstacleCount) % obstacleCount].x +
-                                 GetRandomValue(dynamicSpacingMin, dynamicSpacingMax);
+                    float newX = przeszkody[(i - 1 + liczbaPrzeszkod) % liczbaPrzeszkod].x +
+                                 GetRandomValue(dynamicznyMinOdstep, dynamicznyMaxOdstep);
 
-                    obstacles[i].x = newX;
-                    score += 1;
+                    przeszkody[i].x = newX;
+                    wynik += 1;
 
-                    dynamicSpacingMin = BASE_OBSTACLE_SPACING_MIN + (int)(gameSpeed / 10) *2;
-                    dynamicSpacingMax = BASE_OBSTACLE_SPACING_MAX + (int)(gameSpeed / 8) *2;
+                    dynamicznyMinOdstep = DOMYSLNY_MIN_ODSTEP + (int)(predkoscGry / 10) * 2;
+                    dynamicznyMaxOdstep = DOMYSLNY_MAX_ODSTEP + (int)(predkoscGry / 8) * 2;
 
-                    if (dynamicSpacingMin < 200)
-                        dynamicSpacingMin = 200;
+                    if (dynamicznyMinOdstep < 200)
+                        dynamicznyMinOdstep = 200;
 
-                    if (dynamicSpacingMax < 250)
-                        dynamicSpacingMax = 250;
+                    if (dynamicznyMaxOdstep < 250)
+                        dynamicznyMaxOdstep = 250;
                 }
 
                 if (CheckCollisionRecs(
-                        (Rectangle){playerPosition.x - frameRec.width / 2, playerPosition.y - frameRec.height / 2, frameRec.width, frameRec.height},
-                        obstacles[i]))
+                        (Rectangle){pozycjaGracza.x - szerokoscKlatkiAnimacjiGracza.width / 2, pozycjaGracza.y - szerokoscKlatkiAnimacjiGracza.height / 2, szerokoscKlatkiAnimacjiGracza.width, szerokoscKlatkiAnimacjiGracza.height},
+                        przeszkody[i]))
                 {
-                    gameOver = true;
-                    isPlayingDeathAnimation = true;
-                    if (score > highScore)
+                    koniecGry = true;
+                    czyAnimacjaPorazki = true;
+
+                    if (najlepszeWynikiLiczba == 0 || wynik > najlepszeWyniki[0].wynik)
                     {
-                        highScore = score;
-                        SaveHighScore(highScore);
+                        czyNajlepszyWynik = true;
                     }
+
+                    DodajNajlepszyWynik(najlepszeWyniki, &najlepszeWynikiLiczba, wynik);
                 }
             }
-            gameSpeed += 2 * GetFrameTime();
-            backgroundOffset -= gameSpeed * GetFrameTime();
-            if (backgroundOffset <= -background.width)
+            predkoscGry += 2 * GetFrameTime();
+            tloPozycja -= predkoscGry * GetFrameTime();
+            if (tloPozycja <= -tlo.width)
             {
-                backgroundOffset = 0.0f;
+                tloPozycja = 0.0f;
             }
         }
 
         BeginDrawing();
-        //ClearBackground(RAYWHITE);
-        DrawTexture(background, (int)backgroundOffset, 0, WHITE);
-        DrawTexture(background, (int)backgroundOffset + background.width, 0, WHITE);
+        ClearBackground(RAYWHITE);
 
-        if (isPlayingDeathAnimation)
+        BeginMode2D(camera);
+
+        DrawTexture(tlo, (int)tloPozycja, 0, WHITE);
+        DrawTexture(tlo, (int)tloPozycja + tlo.width, 0, WHITE);
+
+        if (czyAnimacjaPorazki)
         {
-            PlayDeathAnimation();
-            DrawTextureRec(playerDeath, deathFrameRec, (Vector2){playerPosition.x - deathFrameRec.width / 2, playerPosition.y - deathFrameRec.height / 2}, WHITE);
+            StartAnimacjaPorazki();
+            DrawTextureRec(animacjaPorazki, szerokoscKlatkiAnimacjiPorazki, (Vector2){pozycjaGracza.x - szerokoscKlatkiAnimacjiPorazki.width / 2, pozycjaGracza.y - szerokoscKlatkiAnimacjiPorazki.height / 2}, WHITE);
         }
-        else if (!gameOver)
+        else if (!koniecGry)
         {
-            BeginMode2D(camera);
-
-            for (int i = 0; i < obstacleCount; i++)
+            for (int i = 0; i < liczbaPrzeszkod; i++)
             {
-                DrawTextureEx(obstacleTexture, (Vector2){obstacles[i].x, obstacles[i].y - 20}, 0.0f, OBSTACLE_WIDTH / (float)obstacleTexture.width, WHITE);
+                DrawTextureEx(teksturaPrzeszkody, (Vector2){przeszkody[i].x, przeszkody[i].y - 20}, 0.0f, SZEROKOSC_PRZESZKODY / (float)teksturaPrzeszkody.width, WHITE);
             }
 
-            DrawTextureRec(player, frameRec, (Vector2){playerPosition.x - frameRec.width / 2, playerPosition.y - frameRec.height / 2}, WHITE);
+            DrawTextureRec(teksturaGracza, szerokoscKlatkiAnimacjiGracza, (Vector2){pozycjaGracza.x - szerokoscKlatkiAnimacjiGracza.width / 2, pozycjaGracza.y - szerokoscKlatkiAnimacjiGracza.height / 2}, WHITE);
             EndMode2D();
-            DrawText(TextFormat("Score: %d", score), 10, 10, 20, BLACK);
-            DrawText(TextFormat("HighScore: %d", highScore), 10, 40, 20, BLACK);
+            DrawText(TextFormat("Wynik: %d", wynik), 10, 10, 20, BLACK);
         }
         else
         {
+            EndMode2D();
+            DrawText("Przegrana!", 260, 200, 40, RED);
+            DrawText(TextFormat("Wynik: %d", wynik), 260, 250, 30, BLACK);
 
-            DrawText("Game Over!", 300, 200, 40, RED);
-            DrawText(TextFormat("Score: %d", score), 300, 250, 30, BLACK);
-            DrawText(TextFormat("HighScore: %d", highScore), 300, 300, 30, BLACK);
-            DrawText("Press R to Restart", 300, 350, 20, GRAY);
+            if (czyNajlepszyWynik)
+            {
+                DrawText("NOWY REKORD!", 260, 300, 30, GOLD);
+            }
+
+            DrawText("Najlepsze wyniki:", 260, 340, 30, DARKGRAY);
+
+            for (int i = 0; i < najlepszeWynikiLiczba; i++)
+            {
+                DrawText(TextFormat("%d. %d (%s)", i + 1, najlepszeWyniki[i].wynik, najlepszeWyniki[i].data), 260, 380 + i * 30, 20, BLACK);
+            }
+
+            DrawText("Restart gry pod przyciskiem 'R'", 260, 500, 20, GOLD);
 
             if (IsKeyPressed(KEY_R))
             {
-                ResetGame();
+                RestartGry();
             }
         }
 
         EndDrawing();
     }
-
-    UnloadTexture(player);
-    UnloadTexture(playerDeath);
-    UnloadTexture(obstacleTexture);
-    UnloadTexture(background);
-    UnloadSound(jump);
+    UnloadTexture(teksturaGracza);
+    UnloadTexture(animacjaPorazki);
+    UnloadTexture(teksturaPrzeszkody);
+    UnloadTexture(tlo);
+    UnloadSound(dzwiekSkoku);
     CloseAudioDevice();
     CloseWindow();
-
     return 0;
 }
