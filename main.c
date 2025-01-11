@@ -20,7 +20,7 @@ typedef struct {
 
 void ZapiszNajlepszeWyniki(NajlepszyWynik najlepszeWyniki[], int liczbaWynikow)
 {
-    FILE *file = fopen("najlepszeWyniki.txt", "w");
+    FILE *file = fopen("resources/najlepszeWyniki.txt", "w");
     if (file != NULL)
     {
         for (int i = 0; i < liczbaWynikow; i++)
@@ -33,7 +33,7 @@ void ZapiszNajlepszeWyniki(NajlepszyWynik najlepszeWyniki[], int liczbaWynikow)
 
 void WczytajNajlepszeWyniki(NajlepszyWynik najlepszeWyniki[], int *liczbaWynikow)
 {
-    FILE *file = fopen("najlepszeWyniki.txt", "r");
+    FILE *file = fopen("resources/najlepszeWyniki.txt", "r");
     *liczbaWynikow = 0;
     if (file != NULL)
     {
