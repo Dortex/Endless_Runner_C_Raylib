@@ -10,7 +10,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
 
     steps:
     # 1. Pobranie kodu źródłowego
@@ -40,47 +40,31 @@ jobs:
         # Instalacja Visual Studio Build Tools (z kompilatorami C++)
         choco install visualstudio2019buildtools -y
 
-        # Instalacja .NET SDK, aby kompilator C++ działał
-        choco install dotnet-sdk -y
-
-    # 4. Instalacja zależności dla macOS
-    - name: Install dependencies (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew install cmake ninja
-
-    # 5. Konfiguracja projektu (użycie Visual Studio jako generatora)
-    - name: Configure CMake (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        cmake -B build -G "Visual Studio 16 2019"
-
-    # 5. Konfiguracja projektu (użycie Ninja dla innych systemów)
-    - name: Configure CMake (Linux/MacOS)
-      if: runner.os != 'Windows'
+    # 4. Konfiguracja projektu
+    - name: Configure CMake
       run: |
         cmake -B build -G Ninja
 
-    # 6. Kompilacja projektu
+    # 5. Kompilacja projektu
     - name: Build project
       run: |
         cmake --build build --config Release
 
-    # 7. Pakowanie wyników w ZIP
+    # 6. Pakowanie wyników w ZIP
     - name: Package the build
       run: |
         mkdir release
         cp build/untitled release/
         zip -j untitled-${{ matrix.os }}.zip release/untitled
 
-    # 8. Przesłanie artefaktów jako ZIP
+    # 7. Przesłanie artefaktów jako ZIP
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: untitled-${{ matrix.os }}
         path: untitled-${{ matrix.os }}.zip
 
-    # 9. Tworzenie lub aktualizacja draft release
+    # 8. Tworzenie lub aktualizacja draft release
     - name: Create or Update Draft Release
       id: create_release
       uses: actions/create-release@v1
@@ -92,7 +76,7 @@ jobs:
         draft: true
         prerelease: true
 
-    # 10. Dodanie ZIP do Release
+    # 9. Dodanie ZIP do Release
     - name: Upload ZIP to Release
       uses: actions/upload-release-asset@v1
       env:
