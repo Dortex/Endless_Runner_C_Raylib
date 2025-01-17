@@ -1,4 +1,4 @@
-name: Build and Release Raylib Project
+name: Build and Release Raylib Project (Linux Only)
 
 on:
   push:
@@ -7,68 +7,44 @@ on:
 
 jobs:
   build_and_release:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+    runs-on: ubuntu-latest
 
     steps:
     # 1. Pobranie kodu źródłowego
     - name: Checkout code
       uses: actions/checkout@v3
 
-    # 2. Instalacja zależności dla Linux
-    - name: Install dependencies (Linux)
-      if: runner.os == 'Linux'
+    # 2. Instalacja zależności
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y cmake ninja-build build-essential libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 
-    # 3. Instalacja zależności dla Windows
-    - name: Install dependencies (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        # Pobierz i zainstaluj CMake
-        curl -LO https://github.com/Kitware/CMake/releases/download/v3.27.2/cmake-3.27.2-windows-x86_64.msi
-        msiexec /i cmake-3.27.2-windows-x86_64.msi /quiet /norestart
-
-        # Pobierz i rozpakuj Ninja
-        curl -LO https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip
-        unzip ninja-win.zip -d C:\ninja
-        setx PATH "%PATH%;C:\ninja"
-
-        # Instalacja Visual Studio Build Tools (z kompilatorami C++)
-        choco install visualstudio2022buildtools -y --no-progress --limit-output
-
-        # Ustaw zmienne środowiskowe dla kompilatora
-        setx CMAKE_C_COMPILER "cl.exe"
-        setx CMAKE_CXX_COMPILER "cl.exe"
-
-    # 4. Konfiguracja projektu
+    # 3. Konfiguracja projektu
     - name: Configure CMake
       run: |
         cmake -B build -G Ninja
 
-    # 5. Kompilacja projektu
+    # 4. Kompilacja projektu
     - name: Build project
       run: |
         cmake --build build --config Release
 
-    # 6. Pakowanie wyników w ZIP
+    # 5. Pakowanie wyników w ZIP
     - name: Package the build
       run: |
         mkdir release
         cp build/untitled release/
-        zip -j untitled-${{ matrix.os }}.zip release/untitled
+        zip -j untitled-linux.zip release/untitled
 
-    # 7. Przesłanie artefaktów jako ZIP
+    # 6. Przesłanie artefaktów jako ZIP
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
-        name: untitled-${{ matrix.os }}
-        path: untitled-${{ matrix.os }}.zip
+        name: untitled-linux
+        path: untitled-linux.zip
 
-    # 8. Tworzenie lub aktualizacja draft release
+    # 7. Tworzenie lub aktualizacja draft release
     - name: Create or Update Draft Release
       id: create_release
       uses: actions/create-release@v1
@@ -80,13 +56,13 @@ jobs:
         draft: true
         prerelease: true
 
-    # 9. Dodanie ZIP do Release
+    # 8. Dodanie ZIP do Release
     - name: Upload ZIP to Release
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: untitled-${{ matrix.os }}.zip
-        asset_name: untitled-${{ matrix.os }}.zip
+        asset_path: untitled-linux.zip
+        asset_name: untitled-linux.zip
         asset_content_type: application/zip
