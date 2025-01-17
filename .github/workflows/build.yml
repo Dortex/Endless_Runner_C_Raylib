@@ -28,17 +28,21 @@ jobs:
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
-        # Instalacja CMake
+        # Pobierz i zainstaluj CMake
         curl -LO https://github.com/Kitware/CMake/releases/download/v3.27.2/cmake-3.27.2-windows-x86_64.msi
         msiexec /i cmake-3.27.2-windows-x86_64.msi /quiet /norestart
 
-        # Instalacja Ninja
+        # Pobierz i rozpakuj Ninja
         curl -LO https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip
         unzip ninja-win.zip -d C:\ninja
         setx PATH "%PATH%;C:\ninja"
 
         # Instalacja Visual Studio Build Tools (z kompilatorami C++)
-        choco install visualstudio2019buildtools -y
+        choco install visualstudio2022buildtools -y --no-progress --limit-output
+
+        # Ustaw zmienne środowiskowe dla kompilatora
+        setx CMAKE_C_COMPILER "cl.exe"
+        setx CMAKE_CXX_COMPILER "cl.exe"
 
     # 4. Konfiguracja projektu
     - name: Configure CMake
